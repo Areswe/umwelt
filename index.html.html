@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Umwelttechnik Lerntrainer</title>
+<style>
+:root{--blue:#0d47a1;--orange:#f57c00;--green:#2e7d32;--red:#c62828;--bg:#f4f7fb}
+*{box-sizing:border-box} body{font-family:Arial,Helvetica,sans-serif;margin:0;background:var(--bg);color:#1f2937}
+header{background:white;border-bottom:4px solid var(--orange);padding:18px 22px;position:sticky;top:0;z-index:10}
+h1{margin:0;color:var(--blue);font-size:26px} .sub{margin-top:5px;color:#555}
+main{max-width:1100px;margin:0 auto;padding:18px}
+.panel{background:white;border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 2px 10px rgba(0,0,0,.08)}
+.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+button,select{border:0;border-radius:10px;padding:10px 14px;font-weight:700}
+button{background:var(--blue);color:white;cursor:pointer}
+button.secondary{background:#e5e7eb;color:#111}
+button.good{background:var(--green)} button.bad{background:var(--red)} button.mid{background:var(--orange)}
+select{background:#eef2f7}
+.card{min-height:270px;display:flex;flex-direction:column;justify-content:space-between}
+.badge{display:inline-block;background:#e8f0fe;color:var(--blue);border-radius:999px;padding:6px 10px;font-weight:700;margin-bottom:12px}
+.question{font-size:25px;font-weight:800;line-height:1.35}
+.answer{display:none;margin-top:18px;padding:15px;border-left:5px solid var(--orange);background:#fff8e9;font-size:19px;line-height:1.45}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.stat{background:#f9fafb;border-radius:12px;padding:12px;text-align:center}
+.stat b{font-size:22px;color:var(--blue)}
+.progressbar{height:14px;background:#e5e7eb;border-radius:999px;overflow:hidden}
+.progressbar div{height:100%;background:linear-gradient(90deg,var(--orange),var(--green));width:0%}
+.small{font-size:13px;color:#666}
+.list{max-height:260px;overflow:auto}
+.row{display:flex;justify-content:space-between;gap:10px;border-bottom:1px solid #eee;padding:8px 0}
+.tag{font-size:12px;border-radius:999px;padding:4px 8px;background:#eee}
+@media(max-width:750px){.stats{grid-template-columns:repeat(2,1fr)} .question{font-size:21px}}
+</style>
+</head>
+<body>
+<header>
+<h1>Umwelttechnik Lerntrainer</h1>
+<div class="sub">Mit Lernfortschritt, Wiederholungslogik und Fokus auf schwache Fragen</div>
+</header>
+<main>
+<section class="panel controls">
+<select id="category"></select>
+<select id="mode">
+<option value="smart">Intelligent lernen: Schwächen öfter</option>
+<option value="random">Zufällig</option>
+<option value="new">Neue Fragen zuerst</option>
+<option value="weak">Nur schwache Fragen</option>
+</select>
+<button onclick="nextCard()">Neue Frage</button>
+<button class="secondary" onclick="resetProgress()">Fortschritt löschen</button>
+</section>
+
+<section class="panel stats">
+<div class="stat"><b id="totalDone">0</b><br>beantwortet</div>
+<div class="stat"><b id="known">0</b><br>kann ich</div>
+<div class="stat"><b id="weak">0</b><br>noch schwach</div>
+<div class="stat"><b id="percent">0%</b><br>Fortschritt</div>
+</section>
+<div class="panel">
+<div class="progressbar"><div id="bar"></div></div>
+</div>
+
+<section class="panel card">
+<div>
+<span class="badge" id="catBadge">Kategorie</span>
+<div class="question" id="question">Klicke auf „Neue Frage“.</div>
+<div class="answer" id="answer"></div>
+</div>
+<div class="controls">
+<button onclick="showAnswer()">Antwort anzeigen</button>
+<button class="bad" onclick="rate(0)">Nicht gewusst</button>
+<button class="mid" onclick="rate(1)">Unsicher</button>
+<button class="good" onclick="rate(2)">Gewusst</button>
+</div>
+<p class="small">Logik: Fragen mit „nicht gewusst“ und „unsicher“ bekommen ein höheres Gewicht und erscheinen häufiger. Alles wird lokal im Browser gespeichert.</p>
+</section>
+
+<section class="panel">
+<h2>Schwache Fragen</h2>
+<div class="list" id="weakList"></div>
+</section>
+</main>
+
+<script>
+const QUESTIONS = [{"cat": "Kläranlage", "q": "Wozu dient ein Vorklärbecken?", "a": "Ungelöste Stoffe setzen sich ab oder schwimmen auf. Etwa ein Drittel der organischen Stoffe wird entfernt. Primärschlamm geht zum Voreindicker."}, {"cat": "Kläranlage", "q": "Beschreibe den Weg des Schlamms in der Kläranlage.", "a": "Primärschlamm aus dem Vorklärbecken und Überschussschlamm aus dem Nachklärbecken gehen in den Voreindicker, danach in den Faulraum/Faulturm, anschließend in den Nacheindicker, zur Schlammpresse und dann zur Entsorgung bzw. Verwertung."}, {"cat": "Kläranlage", "q": "Welche Verfahrensalternativen gibt es für die biologische Reinigungsstufe?", "a": "Belebtschlammverfahren, Tropfkörperverfahren, Tauchkörperverfahren, Festbettreaktorverfahren. Essentiell sind gute Durchmischung und Belüftung."}, {"cat": "Kläranlage", "q": "Wozu dient der Faulturm?", "a": "Im Faulturm wird die im Schlamm verbliebene Organik unter anaeroben Bedingungen abgebaut. Es entstehen Faulgas und Faulschlamm."}, {"cat": "Abwasser", "q": "Welche beiden Stoffströme verbleiben nach der Abwasserreinigung?", "a": "Gereinigtes Abwasser wird in Oberflächengewässer eingeleitet. Klärschlamm wird stofflich verwertet, thermisch entsorgt, deponiert, zwischengelagert oder an andere Anlagen abgegeben."}, {"cat": "Abwasser", "q": "Nenne die vier Arten von Abwasser-Inhaltsstoffen mit Beispiel.", "a": "Zehrstoffe z. B. Glucose/Harnsäure; Nährstoffe z. B. Stickstoff- und Phosphorverbindungen; Schadstoffe z. B. Schwermetalle/Medikamente; Störstoffe z. B. Salze, Fette, Öle, Sand."}, {"cat": "Abwasser", "q": "Welche grundsätzlichen Reinigungsverfahren gibt es in der Abwasserreinigung?", "a": "Mechanisch/physikalische, biologische und chemische Reinigungsverfahren."}, {"cat": "Altlastensanierung", "q": "Was ist der Unterschied zwischen altlastverdächtiger Fläche, Altablagerung und Altstandort?", "a": "Altlastverdächtige Flächen sind Altablagerungen oder Altstandorte mit Verdacht auf schädliche Bodenveränderungen. Altablagerungen sind stillgelegte Abfallbeseitigungsanlagen oder Grundstücke mit abgelagerten Abfällen. Altstandorte sind Grundstücke stillgelegter Anlagen oder Flächen, auf denen mit umweltgefährdenden Stoffen umgegangen wurde."}, {"cat": "Altlastensanierung", "q": "Welche Kontaminanten sind häufig auf Altlastflächen zu finden?", "a": "MKW, BTXE, Schwermetallsalze, LCKW/FCKW und sonstige organische Chlorverbindungen."}, {"cat": "Altlastensanierung", "q": "Welche Maßnahmen können bei einer Sanierung ergriffen werden?", "a": "Verwaltungsmaßnahmen, Sicherungsmaßnahmen, Umlagerung, Dekontamination oder Sanierung über Selbstreinigung mit Überwachung."}, {"cat": "Altlastensanierung", "q": "Nenne Verfahren zur Bodenreinigung.", "a": "Elektrokinetische Sanierung, thermische Verfahren, chemisch-physikalische Verfahren, Bodenwaschverfahren, Bodenluftabsaugung, Immobilisierung, mikrobiologische Verfahren; in situ/ex situ sowie on site/off site."}, {"cat": "Abfallvermeidung", "q": "Wie ist die Abfallhierarchie aufgebaut?", "a": "1. Vermeidung, 2. Vorbereitung zur Wiederverwendung, 3. Recycling, 4. sonstige Verwertung, insbesondere energetische Verwertung und Verfüllung, 5. Beseitigung."}, {"cat": "Abfallvermeidung", "q": "Welche beiden Arten von Abfallvermeidung gibt es?", "a": "Qualitative Abfallvermeidung, z. B. Substitution problematischer Stoffe und Vermeidung von Stoffverbünden. Quantitative Abfallvermeidung, z. B. geringere Materialmasse und längere Gebrauchsdauer."}, {"cat": "Abfallvermeidung", "q": "Wie viel Prozent der Werkstoffe, Verfahren und Kosten werden ungefähr in der Produktentwicklung festgelegt?", "a": "Etwa 95 % der Werkstoffe und Verfahren sowie etwa 80 % der Kosten."}, {"cat": "Abfallvermeidung", "q": "Nenne Kriterien für die Werkstoffauswahl.", "a": "Schadstoffarme Werkstoffe, Werkstoffminimierung, Lebensdauererhöhung, Demontagefreundlichkeit, Kennzeichnung, Wiederverwendung, recyclingfreundliche Werkstoffe und geringe Werkstoffvielfalt."}, {"cat": "Abfallvermeidung", "q": "Wodurch sind umweltschonende Fertigungsverfahren gekennzeichnet?", "a": "Hohe direkte Ausbeute, hoher Wirkungsgrad, kontinuierlicher Betrieb, kurze Prozessketten, geringer Hilfs- und Betriebsstoffeinsatz sowie kontrollierte Prozessführung."}, {"cat": "Recycling", "q": "Wozu dient die Ökodesign-Richtlinie?", "a": "Sie schafft einen Rahmen für Anforderungen an die umweltgerechte Gestaltung energieverbrauchsrelevanter Produkte."}, {"cat": "Recycling", "q": "Wofür steht die CE-Kennzeichnung?", "a": "Bei Einhaltung der Kriterien darf ein Produkt in der EU verkauft, betrieben oder importiert werden."}, {"cat": "Recycling", "q": "Nenne Vorschläge für eine demontagegerechte Konstruktion.", "a": "Wenige Bauteile, leicht lösbare Verbindungen, einfache Materialtrennung, wirtschaftliche Demontage und effizientes Rücknahmesystem."}, {"cat": "E-Schrott", "q": "Warum wird E-Schrott getrennt erfasst? Nenne kritische Bestandteile.", "a": "Wegen kritischer Bestandteile wie Quecksilber, FCKW, Blei- und Cadmium-haltige Bildröhren, PCB-haltige Kondensatoren sowie flammschutzmittelbehandelte Teile."}, {"cat": "E-Schrott", "q": "Nenne wertgebende Bestandteile von E-Schrott.", "a": "Gold, Silber, Platin, seltene Erden wie Neodym/Yttrium/Lanthan, Kupfer, Aluminium, Eisen, Stahl und hochwertige Kunststoffe."}, {"cat": "E-Schrott", "q": "Nenne die vier Schritte der E-Schrottverwertung.", "a": "Schadstoffentfrachtung, Vordemontage, Demontage, Schreddern und Trennen."}, {"cat": "E-Schrott", "q": "Wie müssen Energiesparlampen entsorgt werden und warum?", "a": "Sie müssen bei kommunalen oder gewerblichen Sammelstellen abgegeben werden, weil sie Quecksilber enthalten. Glüh- und Halogenlampen gehören in den Restmüll, nicht ins Altglas."}, {"cat": "Batterien", "q": "Nenne umweltgefährdende Bestandteile von Batterien und ihre Gefahr.", "a": "Cadmium schädigt Nieren/Knochen und gilt als krebserregend. Quecksilber schädigt das Nervensystem und reichert sich an. Blei schädigt das Nervensystem und reichert sich ebenfalls an."}, {"cat": "Batterien", "q": "Wie viel Wasser kann der Quecksilbergehalt einer einzigen Knopfzelle belasten?", "a": "Etwa 800.000 Liter Wasser über den Trinkwassergrenzwert hinaus."}, {"cat": "Altautos", "q": "Welche Verwertungsquoten gelten für Altautos ab 2015?", "a": "85 % für Wiederverwendung und Recycling, 95 % Verwertung insgesamt, 10 % energetische Verwertung, weniger als 5 % Beseitigung."}, {"cat": "Altautos", "q": "Nenne umweltgefährdende Bestandteile von Altfahrzeugen.", "a": "Ölfilter, Batterie, quecksilberhaltige Schalter und asbesthaltige Bauteile."}, {"cat": "Altautos", "q": "Was passiert mit der Restkarosse im Schredderbetrieb?", "a": "Schreddern, magnetische Abtrennung von Eisenmetallen, Abtrennung und Sortierung von NE-Metallen, Aufbereitung der Schredderabfälle und Gewinnung einer energiereichen Restfraktion."}, {"cat": "Energetische Verwertung", "q": "Welche Anforderungen werden an eine energetische Verwertung gestellt?", "a": "Heizwert mindestens 11.000 kJ/kg, hohe Energieeffizienz, Nutzung oder Abgabe der Wärme und möglichst ablagerungsfähige Restabfälle."}, {"cat": "Energetische Verwertung", "q": "Welchen Zweck verfolgt das EEG?", "a": "Nachhaltige Energieversorgung, Klima- und Umweltschutz, Senkung langfristiger Kosten, Schonung fossiler Ressourcen und Förderung erneuerbarer Energietechnologien."}, {"cat": "Deponie", "q": "Welche Phasen durchläuft eine Siedlungsabfalldeponie?", "a": "Phase I aerober Abbau, Phase II anaerobe saure Gärung, Phase III instabile Methangärung, Phase IV stabile Methangärung, Phase V Endzustand."}, {"cat": "Deponie", "q": "Wie lange können Sickerwasser und Deponiegas problematisch sein?", "a": "Sickerwasser etwa 300 Jahre, Deponiegas etwa 100 Jahre."}, {"cat": "Deponie", "q": "Was sagt das Multibarrieren-Konzept aus?", "a": "Mehrere voneinander unabhängige Barrieren sollen Belästigungen und Umweltgefährdungen vermeiden oder vermindern."}, {"cat": "MBA", "q": "Was ist eine mechanisch-biologische Abfallbehandlungsanlage?", "a": "Eine Anlage zur Aufbereitung oder Umwandlung von Siedlungsabfällen durch Kombination mechanischer bzw. physikalischer Verfahren mit biologischen Verfahren wie Rotte oder Vergärung."}, {"cat": "MBA", "q": "Welche Ziele verfolgt die mechanische und die biologische Stufe der MBA?", "a": "Mechanisch: Abtrennung verwertbarer oder nicht ablagerungsfähiger Stoffe. Biologisch: Abbau des organischen Anteils und Inertisierung des Restmülls."}, {"cat": "MBA", "q": "Wo kann die heizwertreiche Fraktion einer MBA verwertet werden?", "a": "In Zementwerken, Braunkohlekraftwerken oder Ersatzbrennstoff-Heizkraftwerken."}, {"cat": "Biologische Abfallbehandlung", "q": "Welche zwei Verfahren gibt es zur Behandlung organischer Abfälle und worin liegt der Hauptunterschied?", "a": "Anaerobe Vergärung: Energie bleibt als Biogas nutzbar. Aerobe Kompostierung: Energie wird im Prozess weitgehend verbraucht."}, {"cat": "Biologische Abfallbehandlung", "q": "Wie ist Biogas zusammengesetzt und wozu wird es genutzt?", "a": "Biogas besteht hauptsächlich aus Methan und Kohlendioxid, dazu Spurengase. Es wird meist in Blockheizkraftwerken verstromt."}, {"cat": "Biologische Abfallbehandlung", "q": "Welche Organismengruppe ist bei der Vergärung besonders wichtig?", "a": "Methanogene Bakterien. Sie sind strikt anaerob und bilden Methan."}, {"cat": "Thermische Abfallbehandlung", "q": "Nenne Ziele der thermischen Abfallbehandlung.", "a": "Hygienisierung, Volumenreduktion, Energiegewinnung, Schadstoffvernichtung, Inertisierung, Erzeugung verwertbarer Reststoffe und Reduzierung von Umweltbelastungen."}, {"cat": "Thermische Abfallbehandlung", "q": "Ordne die Brennstoffe nach Heizwert.", "a": "Erdgas > Heizöl > Steinkohle > trockenes Holz > Hausmüll > Braunkohle."}, {"cat": "Thermische Abfallbehandlung", "q": "Welche Feuerungssysteme gibt es und wofür eignen sie sich?", "a": "Rostfeuerung für inhomogenen Hausmüll, Wirbelschichtfeuerung für homogenen Abfall wie Holz/Klärschlamm/EBS/Kohle, Drehrohrofen häufig für Sondermüll."}, {"cat": "Thermische Abfallbehandlung", "q": "Welche Arten von Verbrennungsluft gibt es?", "a": "Primärluft von unten durch den Rost, Sekundärluft seitlich oberhalb der Flamme zur Verwirbelung, Tertiärluft entlang der Schornsteinwände zur Kühlung."}, {"cat": "MVA Emissionen", "q": "Nenne Gruppen potentieller Emissionen einer MVA.", "a": "Flugstaub/Salze, Schwefeloxide, Halogenverbindungen, Stickoxide, Kohlenstoffverbindungen, Schwermetalle, Dioxine/Furane und Wasserdampf."}, {"cat": "MVA Emissionen", "q": "Nenne Verfahren zur Abscheidung partikelförmiger Verunreinigungen.", "a": "Zyklon durch Trägheit, Gewebefilter durch Partikelgröße, Elektrofilter durch Ionisierung und Abscheidung im elektrischen Feld."}, {"cat": "Gefährliche Abfälle", "q": "Welche Merkmale sind für gefährliche Abfälle charakteristisch?", "a": "Besonders schadstoffhaltige Rückstände in fester, pastöser oder flüssiger Form; gefährlich für Gesundheit, Luft oder Wasser; explosibel, brennbar oder pathogen möglich."}, {"cat": "Gefährliche Abfälle", "q": "Welche Möglichkeiten der chemisch-physikalischen Behandlung gibt es?", "a": "Abtrennung, Immobilisierung oder Umwandlung von Stoffen, z. B. bei Säuren, Laugen, schwermetallhaltigen Lösungen, Emulsionen oder cyanidhaltigen Lösungen."}, {"cat": "Luftschadstoffe", "q": "Nenne wichtige Luftschadstoffe und Gründe ihrer Schädlichkeit.", "a": "Schwefel- und Stickstoffverbindungen verursachen Versauerung/Eutrophierung; CO₂, Methan, SF₆ und NF₃ wirken klimaverändernd; Dioxine sind giftig."}, {"cat": "Abgasreinigung", "q": "Was versteht man unter Absorption?", "a": "Aufnehmen von Gasen durch feste oder flüssige Sorptionsmittel, wobei sich die Gase darin lösen. Beispiele: Wasser, Öle, Calciumhydroxid."}, {"cat": "Abgasreinigung", "q": "Was versteht man unter Adsorption?", "a": "Anreicherung von Stoffen aus Gasen oder Flüssigkeiten an der Oberfläche eines Festkörpers. Beispiele: Aktivkohle, Zeolithe, Kalksteingranulat."}, {"cat": "Abgasreinigung", "q": "Unterschied zwischen thermischer und katalytischer Nachverbrennung?", "a": "Thermische Nachverbrennung oxidiert Kohlenwasserstoffe bei ca. 750–1000 °C. Katalytische Nachverbrennung läuft bei ca. 250–650 °C und spart Energie."}, {"cat": "Abgasreinigung", "q": "Welche Verfahren gibt es zur Entstickung?", "a": "SNCR und SCR. NOx wird zu Stickstoff und Wasser reduziert; SNCR ca. 900–1000 °C, SCR ca. 180–350 °C."}, {"cat": "Recht", "q": "Was bedeutet Basler Übereinkommen?", "a": "Internationales Übereinkommen über die Kontrolle der grenzüberschreitenden Verbringung gefährlicher Abfälle und ihrer Entsorgung."}, {"cat": "Recht", "q": "Unterschied zwischen EU-Verordnung und EU-Richtlinie?", "a": "Eine EU-Verordnung gilt unmittelbar in allen Mitgliedstaaten. Eine EU-Richtlinie muss fristgerecht in nationales Recht umgesetzt werden."}, {"cat": "Recht", "q": "Nenne Gesetz und Verordnung der Wasserreinhaltung.", "a": "Wasserhaushaltsgesetz WHG und Abwasserverordnung AbwV."}, {"cat": "Recht", "q": "Nenne Gesetz der Luftreinhaltung und Besonderheit.", "a": "BImSchG. Besonderheit: Vorbild im Umweltrecht, Schutz- und Abwehrprinzip sowie Vorsorge statt Nachsorge."}, {"cat": "Recht", "q": "Nenne Gesetz und Verordnung der Bodenreinhaltung.", "a": "Bundes-Bodenschutzgesetz BBodSchG und Bundes-Bodenschutz- und Altlastenverordnung."}];
+const KEY = "umwelttechnik_progress_v2";
+let progress = JSON.parse(localStorage.getItem(KEY) || "{}");
+let current = null;
+
+function save(){localStorage.setItem(KEY, JSON.stringify(progress)); updateStats();}
+function cats(){
+ const s = new Set(QUESTIONS.map(q=>q.cat));
+ const sel = document.getElementById("category");
+ sel.innerHTML = '<option value="all">Alle Themen</option>' + [...s].map(c=>`<option>${c}</option>`).join("");
+}
+function getP(i){return progress[i] || {seen:0, known:0, unsure:0, wrong:0, score:0};}
+function filtered(){
+ const c=document.getElementById("category").value;
+ return QUESTIONS.map((q,i)=>({q,i,p:getP(i)})).filter(x=>c==="all"||x.q.cat===c);
+}
+function pickWeighted(arr){
+ let mode=document.getElementById("mode").value;
+ if(mode==="new"){
+   let n=arr.filter(x=>x.p.seen===0); if(n.length) arr=n;
+ }
+ if(mode==="weak"){
+   let w=arr.filter(x=>x.p.wrong+x.p.unsure>0 && x.p.known<3); if(w.length) arr=w;
+ }
+ if(mode==="random") return arr[Math.floor(Math.random()*arr.length)];
+ let weights=arr.map(x=>{
+   let w=1 + x.p.wrong*5 + x.p.unsure*3 - x.p.known*1.3;
+   if(x.p.seen===0) w+=4;
+   return Math.max(0.5,w);
+ });
+ let sum=weights.reduce((a,b)=>a+b,0), r=Math.random()*sum;
+ for(let k=0;k<arr.length;k++){r-=weights[k]; if(r<=0) return arr[k];}
+ return arr[0];
+}
+function nextCard(){
+ const arr=filtered(); if(!arr.length) return;
+ const item=pickWeighted(arr); current=item.i;
+ document.getElementById("catBadge").textContent=item.q.cat;
+ document.getElementById("question").textContent=item.q.q;
+ const a=document.getElementById("answer"); a.textContent=item.q.a; a.style.display="none";
+}
+function showAnswer(){document.getElementById("answer").style.display="block";}
+function rate(v){
+ if(current===null) return;
+ let p=getP(current); p.seen++;
+ if(v===0){p.wrong++; p.score=Math.max(0,p.score-1);}
+ if(v===1){p.unsure++; p.score=Math.max(0,p.score);}
+ if(v===2){p.known++; p.score=Math.min(5,p.score+1);}
+ progress[current]=p; save(); nextCard();
+}
+function updateStats(){
+ let done=0, known=0, weak=0;
+ QUESTIONS.forEach((q,i)=>{let p=getP(i); if(p.seen>0) done++; if(p.score>=3) known++; if((p.wrong+p.unsure)>0 && p.score<3) weak++;});
+ document.getElementById("totalDone").textContent=done;
+ document.getElementById("known").textContent=known;
+ document.getElementById("weak").textContent=weak;
+ let percent=Math.round(known/QUESTIONS.length*100);
+ document.getElementById("percent").textContent=percent+"%";
+ document.getElementById("bar").style.width=percent+"%";
+ const weakItems=QUESTIONS.map((q,i)=>({q,i,p:getP(i)})).filter(x=>(x.p.wrong+x.p.unsure)>0 && x.p.score<3)
+   .sort((a,b)=>(b.p.wrong+b.p.unsure)-(a.p.wrong+a.p.unsure)).slice(0,20);
+ document.getElementById("weakList").innerHTML = weakItems.length ? weakItems.map(x=>`<div class="row"><span>${x.q.q}</span><span class="tag">${x.q.cat}</span></div>`).join("") : "<p class='small'>Noch keine schwachen Fragen markiert.</p>";
+}
+function resetProgress(){
+ if(confirm("Wirklich den gesamten Lernfortschritt löschen?")){progress={}; save(); nextCard();}
+}
+cats(); updateStats(); nextCard();
+</script>
+</body>
+</html>
